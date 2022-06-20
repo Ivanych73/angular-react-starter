@@ -21,13 +21,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    
     - name: setup node
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
         cache-dependency-path: './angular/package-lock.json'
-    #- run: npm install
     - run: npm ci
+
+    - name: run tests
     - run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadless
-    #- run: npm run ci:test
