@@ -30,4 +30,4 @@ jobs:
     #- run: npm install
     - run: npm ci
     #- run: npm test:headless
-    -run: npm run ci:test
+    - run: npm run ci:test
