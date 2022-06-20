@@ -38,8 +38,16 @@ jobs:
       run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadlessCI
 
     - name: send email on failure
-      run: |
-        if [[ ${{ steps.run_tests.outcome }} == 'failure' ]]; 
-        then exit 1;
-        else exit 0;
-        fi;
+      if: ${{ steps.run_tests.outcome == 'failure' }}
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.yandex.ru
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: running tests in ${{ github.job }} job of ${{ github.repository }} failed!
+        to: ivanych5@yandex.ru
+        from: Kirill Novichkov
+        secure: true
+        body: running tests in ${{ github.job }} job of ${{ github.repository }} failed!
+      run: exit 1
