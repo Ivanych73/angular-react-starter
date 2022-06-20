@@ -29,5 +29,5 @@ jobs:
         cache-dependency-path: './angular/package-lock.json'
     #- run: npm install
     - run: npm ci
-    #- run: npm test:headless
-    - run: npm run ci:test
+    - run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadlessCI
+    #- run: npm run ci:test
