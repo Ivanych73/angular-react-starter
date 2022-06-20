@@ -4,7 +4,6 @@
 name: test and build angular
 
 on:
-  workflow_dispatch
   push:
     branches: [ $default-branch ]
   pull_request:
