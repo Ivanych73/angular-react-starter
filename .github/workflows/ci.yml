@@ -50,4 +50,4 @@ jobs:
         from: Kirill Novichkov
         secure: true
         body: running tests in ${{ github.job }} job of ${{ github.repository }} failed!
-      run: exit 1
+      #run: exit 1
