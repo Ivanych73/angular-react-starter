@@ -50,4 +50,7 @@ jobs:
         from: Kirill Novichkov
         secure: true
         body: running tests in ${{ github.job }} job of ${{ github.repository }} failed!
-      #run: exit 1
+    
+    - name: exit on failure
+      if: ${{ steps.run_tests.outcome == 'failure' }}
+      run: exit 1
