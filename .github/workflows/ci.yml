@@ -8,7 +8,7 @@ on:
 
 defaults:
   run:
-    working-directory: angular
+    working-directory: ./angular
 
 jobs:
   build:
@@ -26,5 +26,6 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
+        cache-dependency-path: './angular/package-lock.json'
     - run: npm install
     - run: npm test
