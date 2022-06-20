@@ -35,7 +35,7 @@ jobs:
     - name: run tests
       continue-on-error: true
       id: run_tests
-      run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadless
+      run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadlessCI
 
     - name: send email on failure
       run: |
