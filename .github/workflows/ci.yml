@@ -44,13 +44,13 @@ jobs:
     - name: run tests
       continue-on-error: true
       id: run_tests
-      run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadless
+      run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadlessCI
 
     - name: send email on failure
       if: ${{ steps.run_tests.outcome == 'failure' }}
       uses: dawidd6/action-send-mail@v3
       with:
-        server_address: smtp.yandex.ru
+        server_address: ${{secrets.MAIL_SMTP_SERVER}}
         server_port: 465
         username: ${{secrets.MAIL_USERNAME}}
         password: ${{secrets.MAIL_PASSWORD}}
@@ -99,7 +99,7 @@ jobs:
       if: ${{ steps.run_build.outcome == 'failure' }}
       uses: dawidd6/action-send-mail@v3
       with:
-        server_address: smtp.yandex.ru
+        server_address: ${{secrets.MAIL_SMTP_SERVER}}
         server_port: 465
         username: ${{secrets.MAIL_USERNAME}}
         password: ${{secrets.MAIL_PASSWORD}}
@@ -141,7 +141,7 @@ jobs:
       if: ${{ steps.build_push_docker.outcome == 'failure' }}
       uses: dawidd6/action-send-mail@v3
       with:
-        server_address: smtp.yandex.ru
+        server_address: ${{secrets.MAIL_SMTP_SERVER}}
         server_port: 465
         username: ${{secrets.MAIL_USERNAME}}
         password: ${{secrets.MAIL_PASSWORD}}
@@ -164,7 +164,7 @@ jobs:
     - name: send email on success
       uses: dawidd6/action-send-mail@v3
       with:
-        server_address: smtp.yandex.ru
+        server_address: ${{secrets.MAIL_SMTP_SERVER}}
         server_port: 465
         username: ${{secrets.MAIL_USERNAME}}
         password: ${{secrets.MAIL_PASSWORD}}
