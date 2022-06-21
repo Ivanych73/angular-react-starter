@@ -11,21 +11,21 @@ defaults:
     working-directory: './angular/'
 
 jobs:
-  test:
+  test_and_build:
 
     runs-on: ubuntu-latest
 
-    outputs:
-      start-time: ${{steps.current-time.outputs.readableTime}}
+    # outputs:
+    #   start-time: ${{steps.start-time.outputs.readableTime}}
 
     strategy:
       matrix:
         node-version: [16.x]
 
     steps:
-    - name: Get current time
+    - name: Get start time
       uses: josStorer/get-current-time@v2
-      id: current-time
+      id: start-time
       with:
         utcOffset: "+03:00"
 
@@ -44,9 +44,9 @@ jobs:
     - name: run tests
       continue-on-error: true
       id: run_tests
-      run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadlessCI
+      run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadless
 
-    - name: send email on failure
+    - name: send email on test failure
       if: ${{ steps.run_tests.outcome == 'failure' }}
       uses: dawidd6/action-send-mail@v3
       with:
@@ -60,42 +60,16 @@ jobs:
         secure: true
         body: running tests in ${{ github.job }} job of ${{ github.repository }} failed!
     
-    - name: exit on failure
+    - name: exit on test failure
       if: ${{ steps.run_tests.outcome == 'failure' }}
       run: exit 1
-
-  build:
-
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    needs: [test]
-
-    strategy:
-      matrix:
-        node-version: [16.x]
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: setup node
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-        cache-dependency-path: './angular/package-lock.json'
-    
-    - name: install dependencies
-      run: npm ci
 
     - name: run build
       continue-on-error: true
       id: run_build
       run: npm run build
 
-    - name: send email on test failure
+    - name: send email on build failure
       if: ${{ steps.run_build.outcome == 'failure' }}
       uses: dawidd6/action-send-mail@v3
       with:
@@ -109,7 +83,7 @@ jobs:
         secure: true
         body: running build in ${{ github.job }} job of ${{ github.repository }} failed!
     
-    - name: exit on test failure
+    - name: exit on build failure
       if: ${{ steps.run_build.outcome == 'failure' }}
       run: exit 1
 
@@ -155,9 +129,9 @@ jobs:
       if: ${{ steps.build_push_docker.outcome == 'failure' }}
       run: exit 1
 
-    - name: Get current time
+    - name: Get finish time
       uses: josStorer/get-current-time@v2
-      id: current-time
+      id: finish-time
       with:
         utcOffset: "+03:00"
 
@@ -172,4 +146,114 @@ jobs:
         to: ${{secrets.MAIL_USERNAME}}
         from: ${{secrets.MAIL_FROM_FIELD}}
         secure: true
-        body: ${{ github.job }} job of ${{ github.repository }} succeeded! Started at ${{needs.test.outputs.start-time}}, finished at ${{steps.current-time.outputs.readableTime}}
+        body: ${{ github.job }} job of ${{ github.repository }} succeeded! Started at ${{steps.start-time.outputs.readableTime}}, finished at ${{steps.finish-time.outputs.readableTime}}
+
+  # build:
+
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #     packages: write
+
+  #   needs: [test]
+
+  #   strategy:
+  #     matrix:
+  #       node-version: [16.x]
+
+  #   steps:
+  #   - uses: actions/checkout@v3
+
+  #   - name: setup node
+  #     uses: actions/setup-node@v3
+  #     with:
+  #       node-version: ${{ matrix.node-version }}
+  #       cache: 'npm'
+  #       cache-dependency-path: './angular/package-lock.json'
+    
+  #   - name: install dependencies
+  #     run: npm ci
+
+  #   - name: run build
+  #     continue-on-error: true
+  #     id: run_build
+  #     run: npm run build
+
+  #   - name: send email on build failure
+  #     if: ${{ steps.run_build.outcome == 'failure' }}
+  #     uses: dawidd6/action-send-mail@v3
+  #     with:
+  #       server_address: ${{secrets.MAIL_SMTP_SERVER}}
+  #       server_port: 465
+  #       username: ${{secrets.MAIL_USERNAME}}
+  #       password: ${{secrets.MAIL_PASSWORD}}
+  #       subject: running build in ${{ github.job }} job of ${{ github.repository }} failed!
+  #       to: ${{secrets.MAIL_USERNAME}}
+  #       from: ${{secrets.MAIL_FROM_FIELD}}
+  #       secure: true
+  #       body: running build in ${{ github.job }} job of ${{ github.repository }} failed!
+    
+  #   - name: exit on build failure
+  #     if: ${{ steps.run_build.outcome == 'failure' }}
+  #     run: exit 1
+
+  #   - name: Log in to the Container registry
+  #     uses: docker/login-action@v2
+  #     with:
+  #       registry: ghcr.io
+  #       username: ${{ github.actor }}
+  #       password: ${{ secrets.GITHUB_TOKEN }}
+
+  #   - name: Extract metadata (tags, labels) for Docker
+  #     id: meta
+  #     uses: docker/metadata-action@v4
+  #     with:
+  #       images: ghcr.io/${{ github.repository }}/angular-demo
+
+  #   - name: Build and push Docker image
+  #     continue-on-error: true
+  #     id: build_push_docker
+  #     uses: docker/build-push-action@v3
+  #     with:
+  #       context: .
+  #       file: ./Dockerfile
+  #       push: true
+  #       tags: ${{ steps.meta.outputs.tags }}
+  #       labels: ${{ steps.meta.outputs.labels }}
+
+  #   - name: send email on build docker failure
+  #     if: ${{ steps.build_push_docker.outcome == 'failure' }}
+  #     uses: dawidd6/action-send-mail@v3
+  #     with:
+  #       server_address: ${{secrets.MAIL_SMTP_SERVER}}
+  #       server_port: 465
+  #       username: ${{secrets.MAIL_USERNAME}}
+  #       password: ${{secrets.MAIL_PASSWORD}}
+  #       subject: running build and push docker image in ${{ github.job }} job of ${{ github.repository }} failed!
+  #       to: ${{secrets.MAIL_USERNAME}}
+  #       from: ${{secrets.MAIL_FROM_FIELD}}
+  #       secure: true
+  #       body: running build and push docker image in ${{ github.job }} job of ${{ github.repository }} failed!
+    
+  #   - name: exit on build docker failure
+  #     if: ${{ steps.build_push_docker.outcome == 'failure' }}
+  #     run: exit 1
+
+  #   - name: Get current time
+  #     uses: josStorer/get-current-time@v2
+  #     id: current-time
+  #     with:
+  #       utcOffset: "+03:00"
+
+  #   - name: send email on success
+  #     uses: dawidd6/action-send-mail@v3
+  #     with:
+  #       server_address: ${{secrets.MAIL_SMTP_SERVER}}
+  #       server_port: 465
+  #       username: ${{secrets.MAIL_USERNAME}}
+  #       password: ${{secrets.MAIL_PASSWORD}}
+  #       subject: ${{ github.job }} job of ${{ github.repository }} succeeded!
+  #       to: ${{secrets.MAIL_USERNAME}}
+  #       from: ${{secrets.MAIL_FROM_FIELD}}
+  #       secure: true
+  #       body: ${{ github.job }} job of ${{ github.repository }} succeeded! Started at ${{needs.test.outputs.start-time}}, finished at ${{steps.current-time.outputs.readableTime}}
