@@ -11,7 +11,7 @@ defaults:
     working-directory: './angular/'
 
 jobs:
-  build:
+  test:
 
     runs-on: ubuntu-latest
 
@@ -35,7 +35,7 @@ jobs:
     - name: run tests
       continue-on-error: true
       id: run_tests
-      run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadlessCI
+      run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadless
 
     - name: send email on failure
       if: ${{ steps.run_tests.outcome == 'failure' }}
@@ -53,4 +53,50 @@ jobs:
     
     - name: exit on failure
       if: ${{ steps.run_tests.outcome == 'failure' }}
+      run: exit 1
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    needs: [test]
+
+    strategy:
+      matrix:
+        node-version: [16.x]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: setup node
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: './angular/package-lock.json'
+    
+    - name: install dependencies
+      run: npm ci
+
+    - name: run build
+      continue-on-error: true
+      id: run_build
+      run: npm run build
+
+    - name: send email on failure
+      if: ${{ steps.run_build.outcome == 'failure' }}
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.yandex.ru
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: running build in ${{ github.job }} job of ${{ github.repository }} failed!
+        to: ivanych5@yandex.ru
+        from: Kirill Novichkov
+        secure: true
+        body: running build in ${{ github.job }} job of ${{ github.repository }} failed!
+    
+    - name: exit on failure
+      if: ${{ steps.run_build.outcome == 'failure' }}
       run: exit 1
