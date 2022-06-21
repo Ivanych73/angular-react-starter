@@ -15,11 +15,20 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    outputs:
+      start-time: ${{steps.current-time.outputs.readableTime}}
+
     strategy:
       matrix:
         node-version: [16.x]
 
     steps:
+    - name: Get current time
+      uses: josStorer/get-current-time@v2
+      id: current-time
+      with:
+        utcOffset: "+03:00"
+
     - uses: actions/checkout@v3
 
     - name: setup node
@@ -146,6 +155,12 @@ jobs:
       if: ${{ steps.build_push_docker.outcome == 'failure' }}
       run: exit 1
 
+    - name: Get current time
+      uses: josStorer/get-current-time@v2
+      id: current-time
+      with:
+        utcOffset: "+03:00"
+
     - name: send email on success
       uses: dawidd6/action-send-mail@v3
       with:
@@ -157,4 +172,4 @@ jobs:
         to: ${{secrets.MAIL_USERNAME}}
         from: ${{secrets.MAIL_FROM_FIELD}}
         secure: true
-        body: ${{ github.job }} job of ${{ github.repository }} succeeded!
+        body: ${{ github.job }} job of ${{ github.repository }} succeeded! Started at ${{needs.test.outputs.start-time}}, finished at ${{steps.current-time.outputs.readableTime}}
