@@ -21,29 +21,28 @@ jobs:
 
     steps:
     - name: Get start time
-      uses: josStorer/get-current-time@v2
       id: start-time
-      with:
-        utcOffset: "+03:00"
+      working-directory: './'
+      run: echo "::set-output name=start_time::$(date +%s)"
 
     - uses: actions/checkout@v3
 
-    - name: setup node
+    - name: Setup node
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
         cache-dependency-path: './angular/package-lock.json'
     
-    - name: install dependencies
+    - name: Install dependencies
       run: npm ci
 
-    - name: run tests
+    - name: Run tests
       continue-on-error: true
       id: run_tests
       run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadless
 
-    - name: send email on test failure
+    - name: Send email on test failure
       if: ${{ steps.run_tests.outcome == 'failure' }}
       uses: dawidd6/action-send-mail@v3
       with:
@@ -57,16 +56,16 @@ jobs:
         secure: true
         body: running tests in ${{ github.job }} job of ${{ github.repository }} failed!
     
-    - name: exit on test failure
+    - name: Exit on test failure
       if: ${{ steps.run_tests.outcome == 'failure' }}
       run: exit 1
 
-    - name: run build
+    - name: Run build
       continue-on-error: true
       id: run_build
       run: npm run build
 
-    - name: send email on build failure
+    - name: Send email on build failure
       if: ${{ steps.run_build.outcome == 'failure' }}
       uses: dawidd6/action-send-mail@v3
       with:
@@ -80,7 +79,7 @@ jobs:
         secure: true
         body: running build in ${{ github.job }} job of ${{ github.repository }} failed!
     
-    - name: exit on build failure
+    - name: Exit on build failure
       if: ${{ steps.run_build.outcome == 'failure' }}
       run: exit 1
 
@@ -108,7 +107,7 @@ jobs:
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
 
-    - name: send email on build docker failure
+    - name: Send email on build docker failure
       if: ${{ steps.build_push_docker.outcome == 'failure' }}
       uses: dawidd6/action-send-mail@v3
       with:
@@ -122,17 +121,21 @@ jobs:
         secure: true
         body: running build and push docker image in ${{ github.job }} job of ${{ github.repository }} failed!
     
-    - name: exit on build docker failure
+    - name: Exit on build docker failure
       if: ${{ steps.build_push_docker.outcome == 'failure' }}
       run: exit 1
 
-    - name: Get finish time
-      uses: josStorer/get-current-time@v2
-      id: finish-time
-      with:
-        utcOffset: "+03:00"
+    - name: Get duration
+      id: duration
+      run: |
+        start=${{steps.start-time.outputs.start_time}}
+        finish=$(date +%s)
+        duration=$(($finish-$start))
+        readble_duration=$(date -d@$duration -u +%H:%M:%S)
+        echo "::set-output name=duration::$readble_duration"
+      shell: bash
 
-    - name: send email on success
+    - name: Send email on success
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: ${{secrets.MAIL_SMTP_SERVER}}
@@ -143,4 +146,4 @@ jobs:
         to: ${{secrets.MAIL_USERNAME}}
         from: ${{secrets.MAIL_FROM_FIELD}}
         secure: true
-        body: ${{ github.job }} job of ${{ github.repository }} succeeded! Started at ${{steps.start-time.outputs.readableTime}}, finished at ${{steps.finish-time.outputs.readableTime}}
+        body: ${{ github.job }} job of ${{ github.repository }} succeeded! Total duration took (hours:minutes:seconds) ${{steps.duration.outputs.duration}}
