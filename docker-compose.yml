@@ -1,7 +1,7 @@
 version: '3'
 services:
   angular-starter:
-    image: ghcr.io/ivanych73/angular-react-starter/angular-demo:master
+    image: ghcr.io/ivanych73/angular-react-starter/angular-demo:latest
     container_name: angular
     ports:
       - 8080:8080

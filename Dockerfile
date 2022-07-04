@@ -8,4 +8,4 @@ EXPOSE 8080
 USER nginx
 VOLUME /var/www
 COPY /angular/dist/angular-starter /var/www/html
-ENTRYPOINT nginx -g "daemon off;"
+ENTRYPOINT nginx

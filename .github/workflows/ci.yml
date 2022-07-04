@@ -6,31 +6,49 @@ on:
   pull_request:
     branches: [ master ]
 
-defaults:
-  run:
-    working-directory: './angular/'
-
 jobs:
-  test_and_build:
 
+  get_init_values:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [16.x]
-
+    outputs:
+      start_time: ${{steps.start_time.outputs.start_time}}
+      node_version: ${{steps.node_version.outputs.node_version}}
     steps:
     - name: Get start time
-      id: start-time
-      working-directory: './'
+      id: start_time
       run: echo "::set-output name=start_time::$(date +%s)"
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Get Node version
+      id: node_version
+      run: |
+        # If node version is mentioned in engines section of package.json, use this value
+        # Otherwise use latest
+        version=$(awk '/"node"/{gsub(/("|",)/,"",$2);print $2}' angular/package.json)
+        if [[ -z "$version" ]]
+        then
+          version="*"
+        fi
+        echo "::set-output name=node_version::${version}"
+      shell: bash
+
+  test_and_build:
+    runs-on: ubuntu-latest
+    needs: get_init_values
+    defaults:
+      run:
+        working-directory: './angular/'
+
+    steps:
 
     - uses: actions/checkout@v3
 
     - name: Setup node
       uses: actions/setup-node@v3
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: ${{needs.get_init_values.outputs.node_version}}
         cache: 'npm'
         cache-dependency-path: './angular/package-lock.json'
     
@@ -38,50 +56,20 @@ jobs:
       run: npm ci
 
     - name: Run tests
-      continue-on-error: true
       id: run_tests
       run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadless
 
-    - name: Send email on test failure
-      if: ${{ steps.run_tests.outcome == 'failure' }}
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: ${{secrets.MAIL_SMTP_SERVER}}
-        server_port: 465
-        username: ${{secrets.MAIL_USERNAME}}
-        password: ${{secrets.MAIL_PASSWORD}}
-        subject: running tests in ${{ github.job }} job of ${{ github.repository }} failed!
-        to: ${{secrets.MAIL_USERNAME}}
-        from: ${{secrets.MAIL_FROM_FIELD}}
-        secure: true
-        body: running tests in ${{ github.job }} job of ${{ github.repository }} failed!
-    
-    - name: Exit on test failure
-      if: ${{ steps.run_tests.outcome == 'failure' }}
-      run: exit 1
+    - name: Set run tests as failed step
+      if: failure() && steps.run_tests.outcome == 'failure'
+      run: echo "FAILED_STEP=running tests" >> $GITHUB_ENV
 
     - name: Run build
-      continue-on-error: true
       id: run_build
       run: npm run build
 
-    - name: Send email on build failure
-      if: ${{ steps.run_build.outcome == 'failure' }}
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: ${{secrets.MAIL_SMTP_SERVER}}
-        server_port: 465
-        username: ${{secrets.MAIL_USERNAME}}
-        password: ${{secrets.MAIL_PASSWORD}}
-        subject: running build in ${{ github.job }} job of ${{ github.repository }} failed!
-        to: ${{secrets.MAIL_USERNAME}}
-        from: ${{secrets.MAIL_FROM_FIELD}}
-        secure: true
-        body: running build in ${{ github.job }} job of ${{ github.repository }} failed!
-    
-    - name: Exit on build failure
-      if: ${{ steps.run_build.outcome == 'failure' }}
-      run: exit 1
+    - name: Set run build as failed step
+      if: failure() && steps.run_build.outcome == 'failure'
+      run: echo "FAILED_STEP=running build" >> $GITHUB_ENV
 
     - name: Log in to the Container registry
       uses: docker/login-action@v2
@@ -95,9 +83,10 @@ jobs:
       uses: docker/metadata-action@v4
       with:
         images: ghcr.io/${{ github.repository }}/angular-demo
+        # Tag image with commit ID
+        tags: type=raw,value=${{GITHUB.SHA}}
 
     - name: Build and push Docker image
-      continue-on-error: true
       id: build_push_docker
       uses: docker/build-push-action@v3
       with:
@@ -107,31 +96,33 @@ jobs:
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
 
-    - name: Send email on build docker failure
-      if: ${{ steps.build_push_docker.outcome == 'failure' }}
+    - name: Set build and push as failed step
+      if: failure() && steps.build_push_docker.outcome == 'failure'
+      run: echo "FAILED_STEP=build and push docker image" >> $GITHUB_ENV
+
+    - name: Send email on failure
+      if: failure()
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: ${{secrets.MAIL_SMTP_SERVER}}
         server_port: 465
         username: ${{secrets.MAIL_USERNAME}}
         password: ${{secrets.MAIL_PASSWORD}}
-        subject: running build and push docker image in ${{ github.job }} job of ${{ github.repository }} failed!
+        subject:  ${{env.FAILED_STEP}} in ${{ github.job }} job of ${{ github.repository }} failed!
         to: ${{secrets.MAIL_USERNAME}}
         from: ${{secrets.MAIL_FROM_FIELD}}
         secure: true
-        body: running build and push docker image in ${{ github.job }} job of ${{ github.repository }} failed!
-    
-    - name: Exit on build docker failure
-      if: ${{ steps.build_push_docker.outcome == 'failure' }}
-      run: exit 1
+        body: ${{env.FAILED_STEP}} in ${{ github.job }} job of ${{ github.repository }} failed!
 
     - name: Get duration
       id: duration
       run: |
-        start=${{steps.start-time.outputs.start_time}}
+        # start=${{steps.start-time.outputs.start_time}}
+        start=${{needs.get_init_values.outputs.start_time}}
         finish=$(date +%s)
         duration=$(($finish-$start))
-        readble_duration=$(date -d@$duration -u +%H:%M:%S)
+        # readble_duration=$(date -d@$duration -u +%H:%M:%S)
+        readble_duration="$(date -d@$duration -u +%H) h $(date -d@$duration -u +%M) min $(date -d@$duration -u +%S) sec"
         echo "::set-output name=duration::$readble_duration"
       shell: bash
 
@@ -146,4 +137,4 @@ jobs:
         to: ${{secrets.MAIL_USERNAME}}
         from: ${{secrets.MAIL_FROM_FIELD}}
         secure: true
-        body: ${{ github.job }} job of ${{ github.repository }} succeeded! Total duration took (hours:minutes:seconds) ${{steps.duration.outputs.duration}}
+        body: ${{ github.job }} job of ${{ github.repository }} succeeded! Total duration took ${{steps.duration.outputs.duration}}
