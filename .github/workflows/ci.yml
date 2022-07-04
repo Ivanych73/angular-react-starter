@@ -119,11 +119,9 @@ jobs:
     - name: Get duration
       id: duration
       run: |
-        # start=${{steps.start-time.outputs.start_time}}
         start=${{needs.get_init_values.outputs.start_time}}
         finish=$(date +%s)
         duration=$(($finish-$start))
-        # readble_duration=$(date -d@$duration -u +%H:%M:%S)
         readble_duration="$(date -d@$duration -u +%H) h $(date -d@$duration -u +%M) min $(date -d@$duration -u +%S) sec"
         echo "::set-output name=duration::$readble_duration"
       shell: bash
