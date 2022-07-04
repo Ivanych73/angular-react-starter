@@ -84,7 +84,9 @@ jobs:
       with:
         images: ghcr.io/${{ github.repository }}/angular-demo
         # Tag image with commit ID
-        tags: type=raw,value=${{GITHUB.SHA}}
+        tags: |
+          type=raw,value=${{GITHUB.SHA}}
+          type=raw,value=latest
 
     - name: Build and push Docker image
       id: build_push_docker
